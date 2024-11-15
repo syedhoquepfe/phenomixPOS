@@ -1,0 +1,72 @@
+name,description,query,id,parentId,isFolder
+CPRD_detail rel,,"MATCH (p:phenotype)
+WHERE p.cprd_PID IS NOT NULL
+WITH p
+MATCH (c:cprd_detail{PID: p.cprd_PID})
+CREATE (p)-[:DETAILS_ARE]->(c);",0,,false
+OHDSI_detail rel,,"MATCH (p:phenotype)
+WHERE p.ohdsi_PID IS NOT NULL
+WITH p
+MATCH (o:ohdsi_detail {PID: p.ohdsi_PID})
+CREATE (p)-[:DETAILS_ARE]->(o);",1,,false
+PHEKB_detail rel,,"MATCH (p:phenotype)
+WHERE p.phekb_PID IS NOT NULL
+WITH p
+MATCH (k:phekb_detail {PID: p.phekb_PID})
+CREATE (p)-[:DETAILS_ARE]->(k);",2,,false
+SENTINEL_detail rel,,"MATCH (p:phenotype)
+WHERE p.sentinel_PID IS NOT NULL
+WITH p
+MATCH (s:sentinel_detail {PID: p.sentinel_PID})
+CREATE (p)-[:DETAILS_ARE]->(s);",3,,false
+HDRUK_detail rel,,"// Step 1: Match all phenotype nodes
+MATCH (p:phenotype)
+WITH p, p.hdruk_PID AS hdrukPIDs
+// Step 2: Split the hdruk_PID string into a list and remove unnecessary characters
+WITH p, apoc.text.split(replace(hdrukPIDs, ""nan"", """"), ""[,\\[\\]' ]+"") AS parsedPIDs
+UNWIND parsedPIDs AS pid
+WITH p, trim(pid) AS cleanPid
+WHERE cleanPid <> ''  // Ensure pid is not empty
+// Step 3: Match the corresponding hdruk_detail nodes
+MATCH (h:hdruk_detail {PID: cleanPid})
+// Step 4: Create the relationship
+MERGE (p)-[:DETAILS_ARE]->(h)",4,,false
+see nodes w rel,,"MATCH (n)-[r]->(m) RETURN n, r, m",5,,false
+SENTINEL_concept rel,,"// Step 1: Match all sentinel_concept nodes
+MATCH (sc:sentinel_concept)
+WITH sc, sc.PIDs AS pidString
+// Step 2: Remove unnecessary characters and split the PIDs into a list
+WITH sc, apoc.text.split(replace(pidString, '[""', ''), '"",""') AS pids
+UNWIND pids AS pid
+WITH sc, trim(replace(pid, '""]', '')) AS cleanPid
+WHERE cleanPid IS NOT NULL AND cleanPid <> ''
+// Step 3: Match the corresponding sentinel_detail nodes
+MATCH (sd:sentinel_detail {PID: cleanPid})
+// Step 4: Create the relationship
+MERGE (sd)-[:HAS_CONCEPT]->(sc)
+",6,,false
+PHEKB_concept rel,,"// Step 1: Match all phekb_concept nodes
+MATCH (pc:phekb_concept)
+WITH pc, pc.PIDs AS pidString
+// Step 2: Split the PIDs string into individual PIDs
+WITH pc, apoc.text.split(pidString, "","") AS pids
+UNWIND pids AS pid
+WITH pc, trim(replace(replace(pid, '[', ''), ']', '')) AS cleanPid
+WHERE cleanPid IS NOT NULL AND cleanPid <> ''
+// Step 3: Match the corresponding phekb_detail nodes
+MATCH (pd:phekb_detail {PID: cleanPid})
+// Step 4: Create the relationship
+MERGE (pd)-[:HAS_CONCEPT]->(pc)",7,,false
+OHDSI_concept rel,,MATCH p=()-[:HAS_CONCEPT]->() RETURN p;,8,,false
+CPRD_concept rel,,"// Step 1: Match all cprd_concept nodes
+MATCH (cc:cprd_concept)
+WITH cc, cc.PIDs AS pidString
+// Step 2: Split the PIDs string into individual PIDs and clean the data
+WITH cc, apoc.text.split(replace(replace(pidString, '[', ''), ']', ''), ',') AS pids
+UNWIND pids AS pid
+WITH cc, trim(replace(replace(pid, '""', ''), ""'"", '')) AS cleanPid
+WHERE cleanPid IS NOT NULL AND cleanPid <> ''
+// Step 3: Match the corresponding cprd_detail nodes
+MATCH (cd:cprd_detail {PID: cleanPid})
+// Step 4: Create the relationship
+MERGE (cd)-[:HAS_CONCEPT]->(cc)",9,,false
